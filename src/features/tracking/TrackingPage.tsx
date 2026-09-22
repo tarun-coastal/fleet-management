@@ -145,6 +145,46 @@ function RecenterMap({ position }: { position: [number, number] }) {
   return null;
 }
 
+// Calculate distance and check if path has actual movement (> ~30 meters)
+function getValidTravelPath(recordedPath: [number, number][], currentLat: number, currentLng: number): [number, number][] {
+  if (!recordedPath || recordedPath.length === 0) {
+    return [];
+  }
+
+  // Filter out redundant points that are almost identical (< 0.0002 deg apart ~ 20m)
+  const filtered: [number, number][] = [recordedPath[0]];
+
+  for (let i = 1; i < recordedPath.length; i++) {
+    const prev = filtered[filtered.length - 1];
+    const curr = recordedPath[i];
+    const dist = Math.sqrt(Math.pow(curr[0] - prev[0], 2) + Math.pow(curr[1] - prev[1], 2));
+    if (dist > 0.0002) {
+      filtered.push(curr);
+    }
+  }
+
+  // Add current position if it has moved sufficiently from last filtered point
+  const last = filtered[filtered.length - 1];
+  const currentDist = Math.sqrt(Math.pow(currentLat - last[0], 2) + Math.pow(currentLng - last[1], 2));
+  if (currentDist > 0.0002) {
+    filtered.push([currentLat, currentLng]);
+  }
+
+  // Check overall displacement from start to end (or total path length)
+  if (filtered.length >= 2) {
+    const totalDisplacement = Math.sqrt(
+      Math.pow(filtered[filtered.length - 1][0] - filtered[0][0], 2) +
+      Math.pow(filtered[filtered.length - 1][1] - filtered[0][1], 2)
+    );
+    // Only return path if vehicle has actually moved > 0.0003 degrees (~30m)
+    if (totalDisplacement > 0.0003) {
+      return filtered;
+    }
+  }
+
+  return [];
+}
+
 export function TrackingPage() {
   const queryClient = useQueryClient();
   const [selectedVehicle, setSelectedVehicle] = useState<LocationPing | null>(null);
@@ -264,11 +304,7 @@ export function TrackingPage() {
 
             {/* Render Journey Path from Point A to Point B */}
             {vehicles.map((v) => {
-              const recordedPath = v.pathHistory || [];
-              const fullPath: [number, number][] = [...recordedPath];
-              if (fullPath.length === 0 || (Math.abs(fullPath[fullPath.length - 1][0] - v.lat) > 0.0001 || Math.abs(fullPath[fullPath.length - 1][1] - v.lng) > 0.0001)) {
-                fullPath.push([v.lat, v.lng]);
-              }
+              const fullPath = getValidTravelPath(v.pathHistory || [], v.lat, v.lng);
               const hasJourney = fullPath.length >= 2;
               const startPoint = fullPath[0];
 

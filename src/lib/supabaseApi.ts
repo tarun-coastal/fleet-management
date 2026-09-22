@@ -414,8 +414,8 @@ export async function pingTracking(params: {
     const lastPt = currentHistory[currentHistory.length - 1];
     const shouldAppend =
       !lastPt ||
-      Math.abs(lastPt[0] - params.lat) > 0.00005 ||
-      Math.abs(lastPt[1] - params.lng) > 0.00005;
+      Math.abs(lastPt[0] - params.lat) > 0.0002 ||
+      Math.abs(lastPt[1] - params.lng) > 0.0002;
 
     const updatedHistory = shouldAppend ? [...currentHistory, newPoint] : currentHistory;
 
