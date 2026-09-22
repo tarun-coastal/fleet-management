@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute, PublicRoute } from '@/lib/guards';
 
@@ -64,5 +64,9 @@ export const router = createBrowserRouter([
         ],
       },
     ],
-  }
+  },
+  {
+    path: '*',
+    element: <Navigate to="/" replace />,
+  },
 ]);
