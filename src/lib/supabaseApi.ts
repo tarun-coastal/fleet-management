@@ -340,16 +340,23 @@ export async function endTrip(
         })
         .eq('registration_number', trip.vehicle_id);
     }
+
+    // Clear live tracking position record so completed vehicle immediately disappears from radar map
+    await supabase
+      .from('live_positions')
+      .delete()
+      .or(`vehicle_reg.eq.${trip.vehicle_id},vehicle_id.eq.${trip.vehicle_id}`);
   }
 }
 
 // ─── TRACKING ─────────────────────────────────────────────────────────────────
 
 export async function getLivePositions(): Promise<LocationPing[]> {
-  // 1. Fetch currently registered vehicle registration numbers
+  // 1. Fetch currently registered active vehicle registration numbers
   const { data: vehicles } = await supabase
     .from('vehicles')
-    .select('registration_number');
+    .select('registration_number')
+    .eq('status', 'active');
 
   const registeredRegs = new Set(
     (vehicles || []).map((v: any) => (v.registration_number || '').toUpperCase().trim())
@@ -361,7 +368,7 @@ export async function getLivePositions(): Promise<LocationPing[]> {
     .order('timestamp', { ascending: false });
   if (error) throw error;
 
-  // 2. Only return 1 position per vehicle registration (deduplicate by vehicle_reg)
+  // 2. Only return 1 position per active vehicle registration (deduplicate by vehicle_reg)
   const uniquePositionsMap = new Map<string, any>();
   for (const p of (data || [])) {
     const reg = (p.vehicle_reg || '').toUpperCase().trim();
