@@ -361,13 +361,16 @@ export async function getLivePositions(): Promise<LocationPing[]> {
     .order('timestamp', { ascending: false });
   if (error) throw error;
 
-  // 2. Only return positions for vehicles that actually exist in the fleet
-  const validPositions = (data || []).filter((p: any) => {
+  // 2. Only return 1 position per vehicle registration (deduplicate by vehicle_reg)
+  const uniquePositionsMap = new Map<string, any>();
+  for (const p of (data || [])) {
     const reg = (p.vehicle_reg || '').toUpperCase().trim();
-    return registeredRegs.has(reg);
-  });
+    if (registeredRegs.has(reg) && !uniquePositionsMap.has(reg)) {
+      uniquePositionsMap.set(reg, p);
+    }
+  }
 
-  return validPositions.map(rowToLocationPing);
+  return Array.from(uniquePositionsMap.values()).map(rowToLocationPing);
 }
 
 export async function pingTracking(params: {
@@ -379,12 +382,22 @@ export async function pingTracking(params: {
   speed: number;
   heading: number;
 }): Promise<LocationPing> {
-  // Check if a live_position entry already exists for this vehicle
-  const { data: existing } = await supabase
+  const cleanReg = (params.vehicleReg || '').trim();
+
+  // Find any existing live_positions entry for this vehicle
+  const { data: existingList } = await supabase
     .from('live_positions')
     .select('*')
-    .eq('vehicle_reg', params.vehicleReg)
-    .maybeSingle();
+    .eq('vehicle_reg', cleanReg)
+    .order('timestamp', { ascending: false });
+
+  const existing = existingList && existingList.length > 0 ? existingList[0] : null;
+
+  // Cleanup duplicate rows if any exist for this vehicle
+  if (existingList && existingList.length > 1) {
+    const duplicateIds = existingList.slice(1).map(r => r.id);
+    await supabase.from('live_positions').delete().in('id', duplicateIds);
+  }
 
   const newPoint = [params.lat, params.lng];
   const now = new Date().toISOString();
@@ -411,7 +424,7 @@ export async function pingTracking(params: {
         path_history: updatedHistory,
         driver_name: params.driverName || existing.driver_name,
       })
-      .eq('vehicle_reg', params.vehicleReg)
+      .eq('id', existing.id)
       .select()
       .single();
 
@@ -424,7 +437,7 @@ export async function pingTracking(params: {
       .insert({
         id,
         vehicle_id: params.vehicleId || `v_${Date.now()}`,
-        vehicle_reg: params.vehicleReg,
+        vehicle_reg: cleanReg,
         driver_name: params.driverName || 'Driver',
         lat: params.lat,
         lng: params.lng,
