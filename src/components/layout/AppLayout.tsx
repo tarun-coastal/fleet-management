@@ -21,9 +21,9 @@ export function AppLayout() {
 
   const unreadNotifs = notifs?.filter((n: any) => !n.read).length || 0;
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
     toast.info('Logged out successfully');
   };
 
