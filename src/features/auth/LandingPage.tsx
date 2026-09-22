@@ -77,7 +77,7 @@ export function LandingPage() {
               Driver Console
             </Button>
             <Link to="/login">
-              <Button variant="outline" className="border-slate-700 text-slate-200 hover:bg-slate-800 text-xs">
+              <Button className="bg-slate-800/90 hover:bg-slate-700 text-slate-100 border border-slate-700 text-xs font-semibold px-4">
                 Log In
               </Button>
             </Link>
