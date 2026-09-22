@@ -45,7 +45,7 @@ export function FleetHighway3D({ onVehicleClick }: FleetHighway3DProps) {
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;
 
@@ -347,12 +347,16 @@ export function FleetHighway3D({ onVehicleClick }: FleetHighway3DProps) {
 
     // ─── RENDER LOOP & ANIMATION ──────────────────────────────────────────────
     let animationFrameId: number;
-    let clock = new THREE.Clock();
+    let lastTime = performance.now();
+    let elapsedTime = 0;
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
 
-      const delta = clock.getDelta();
+      const now = performance.now();
+      const delta = Math.min((now - lastTime) / 1000, 0.1);
+      lastTime = now;
+      elapsedTime += delta;
       const currentSpeed = isPausedRef.current ? 0 : speedRef.current;
       const moveFactor = (currentSpeed / 60) * delta * 25;
 
@@ -379,9 +383,9 @@ export function FleetHighway3D({ onVehicleClick }: FleetHighway3DProps) {
 
       // Gentle floating vehicle sway & relative speeds
       if (!isPausedRef.current) {
-        truck1.position.z += Math.sin(clock.getElapsedTime() * 1.5) * 0.02;
-        van1.position.z += Math.cos(clock.getElapsedTime() * 1.8) * 0.03 + moveFactor * 0.05;
-        truck2.position.z += Math.sin(clock.getElapsedTime() * 1.2) * 0.02;
+        truck1.position.z += Math.sin(elapsedTime * 1.5) * 0.02;
+        van1.position.z += Math.cos(elapsedTime * 1.8) * 0.03 + moveFactor * 0.05;
+        truck2.position.z += Math.sin(elapsedTime * 1.2) * 0.02;
 
         if (van1.position.z > 25) van1.position.z = -120;
       }
