@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { getExpenses, createExpense, approveExpense, rejectExpense } from '@/lib/supabaseApi';
 import type { Expense } from '@/types';
 import { useAuthStore } from '@/lib/store';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -31,43 +31,44 @@ export function ExpensesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['expenses', categoryFilter, statusFilter],
-    queryFn: async () => {
-      const res = await api.get('/expenses', {
-        params: {
-          category: categoryFilter,
-          approved: statusFilter
-        }
-      });
-      return res.data.results as Expense[];
-    }
+    queryFn: () => getExpenses(categoryFilter, statusFilter)
   });
 
   const expenses = data || [];
   const totalAmount = expenses.reduce((sum, item) => sum + (item.amount || 0), 0);
 
   const addMutation = useMutation({
-    mutationFn: (newExp: Partial<Expense>) => api.post('/expenses', newExp),
+    mutationFn: (newExp: Partial<Expense>) => createExpense(newExp),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       setIsAddOpen(false);
       toast.success('Expense submitted for approval');
       setForm({ vehicleId: 'MH 12 AB 1234', category: 'fuel', amount: 0, date: new Date().toISOString().split('T')[0], notes: '' });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to submit expense');
     }
   });
 
   const approveMutation = useMutation({
-    mutationFn: (id: string) => api.put(`/expenses/${id}/approve`),
+    mutationFn: (id: string) => approveExpense(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       toast.success('Expense marked Approved');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to approve expense');
     }
   });
 
   const rejectMutation = useMutation({
-    mutationFn: (id: string) => api.put(`/expenses/${id}/reject`),
+    mutationFn: (id: string) => rejectExpense(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       toast.error('Expense Rejected');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to reject expense');
     }
   });
 

@@ -3,13 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/lib/store';
-import { api } from '@/lib/api';
+import { loginWithEmail } from '@/lib/supabaseApi';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { KeyRound, Truck, Shield, UserCheck, Navigation, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import type { DriverProfile } from '@/types';
+import { getDrivers } from '@/lib/supabaseApi';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -24,10 +25,9 @@ export function LoginPage() {
     queryKey: ['drivers-login-list'],
     queryFn: async () => {
       try {
-        const res = await api.get('/drivers');
-        return (res.data?.results ?? []) as DriverProfile[];
+        return await getDrivers();
       } catch (e) {
-        return [];
+        return [] as DriverProfile[];
       }
     }
   });
@@ -36,15 +36,12 @@ export function LoginPage() {
     setIsLoading(true);
     setError('');
     try {
-      const { data } = await api.post('/auth/login', { 
-        email: loginIdentifier, 
-        password: loginPass || 'password' 
-      });
-      setAuth(data.token, data.user);
-      toast.success(`Signed in as ${data.user.name}!`);
-      navigate(data.user.role === 'driver' ? '/driver' : '/dashboard');
+      const { user, token } = await loginWithEmail(loginIdentifier, loginPass);
+      setAuth(token, user);
+      toast.success(`Signed in as ${user.name}!`);
+      navigate(user.role === 'driver' ? '/driver' : '/dashboard');
     } catch (err: any) {
-      setError('Invalid login identifier or password. Please verify your driver details.');
+      setError(err.message || 'Invalid email or password. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -53,12 +50,6 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await performLogin(email, password);
-  };
-
-  const handleQuickFill = (fillEmail: string, fillPass: string) => {
-    setEmail(fillEmail);
-    setPassword(fillPass);
-    setError('');
   };
 
   return (
@@ -77,32 +68,28 @@ export function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="identifier" className="text-xs font-semibold text-slate-700">
-                Driver Email / Mobile / Name / Identifier
+                Email Address
               </Label>
-              <Input 
-                id="identifier" 
-                type="text" 
-                placeholder="e.g. driver email, mobile number, or driver name" 
-                required 
-                value={email} 
-                onChange={(e: any) => setEmail(e.target.value)} 
+              <Input
+                id="identifier"
+                type="email"
+                placeholder="e.g. owner@company.com"
+                required
+                value={email}
+                onChange={(e: any) => setEmail(e.target.value)}
                 className="text-sm"
               />
-              <p className="text-[10px] text-slate-400">
-                Drivers can log in using their email, mobile number, or name.
-              </p>
             </div>
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
                 <Label htmlFor="password" className="text-xs font-semibold text-slate-700">Password</Label>
-                <span className="text-[11px] text-slate-400">Default: password</span>
               </div>
-              <Input 
-                id="password" 
-                type="password" 
-                required 
-                value={password} 
-                onChange={(e: any) => setPassword(e.target.value)} 
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e: any) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="text-sm"
               />
@@ -134,7 +121,7 @@ export function LoginPage() {
                   <button
                     key={d.id}
                     type="button"
-                    onClick={() => performLogin(d.email || d.name || 'driver', 'password')}
+                    onClick={() => performLogin(d.email || '', 'password')}
                     className="w-full p-2 bg-white border border-emerald-200 rounded-md text-left hover:border-emerald-400 hover:bg-emerald-50/50 transition-all flex items-center justify-between group"
                   >
                     <div>
@@ -158,47 +145,10 @@ export function LoginPage() {
             </div>
           )}
 
-          {/* Quick Demo Fill Shortcut Chips */}
+          {/* Info notice about Supabase auth */}
           <div className="pt-3 border-t border-slate-100">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2 text-center">
-              Quick One-Click Test Accounts
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => performLogin('owner@test.com', 'password')}
-                className="p-2 text-left bg-slate-50 hover:bg-blue-50 hover:border-blue-200 border rounded-lg transition-colors text-xs"
-              >
-                <div className="font-bold text-slate-800 flex items-center gap-1">
-                  <Shield className="w-3 h-3 text-blue-600" /> Owner
-                </div>
-                <div className="text-[10px] text-slate-400 truncate">owner@test.com</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => performLogin('manager@test.com', 'password')}
-                className="p-2 text-left bg-slate-50 hover:bg-blue-50 hover:border-blue-200 border rounded-lg transition-colors text-xs"
-              >
-                <div className="font-bold text-slate-800 flex items-center gap-1">
-                  <UserCheck className="w-3 h-3 text-indigo-600" /> Manager
-                </div>
-                <div className="text-[10px] text-slate-400 truncate">manager@test.com</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => performLogin('driver@test.com', 'password')}
-                className="p-2 text-left bg-slate-50 hover:bg-blue-50 hover:border-blue-200 border rounded-lg transition-colors text-xs"
-              >
-                <div className="font-bold text-slate-800 flex items-center gap-1">
-                  <Truck className="w-3 h-3 text-emerald-600" /> Driver
-                </div>
-                <div className="text-[10px] text-slate-400 truncate">driver@test.com</div>
-              </button>
-            </div>
-            <p className="text-[10px] text-slate-400 text-center mt-2 italic">
-              * Any new driver created by Owner or Manager can also log in immediately!
+            <p className="text-[11px] text-slate-400 text-center italic">
+              * This app uses Supabase Auth. Register from the Sign Up page to create real accounts.
             </p>
           </div>
         </CardContent>

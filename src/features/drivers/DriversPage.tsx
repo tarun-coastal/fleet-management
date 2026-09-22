@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api } from '@/lib/api';
+import { getDrivers, createDriver, deleteDriver, getVehicles } from '@/lib/supabaseApi';
 import type { DriverProfile, Vehicle } from '@/types';
 import { Plus, Trash2, Search, UserPlus, Phone, Shield, Truck, Copy, Check, MapPin, KeyRound, Mail, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
@@ -32,21 +32,13 @@ export function DriversPage() {
   // Fetch Drivers
   const { data: driversData, isLoading } = useQuery({
     queryKey: ['drivers', searchTerm],
-    queryFn: async () => {
-      const res = await api.get('/drivers', {
-        params: { search: searchTerm }
-      });
-      return (res.data?.results ?? []) as DriverProfile[];
-    }
+    queryFn: () => getDrivers(searchTerm)
   });
 
   // Fetch Vehicles for assignment dropdown
   const { data: vehiclesData } = useQuery({
     queryKey: ['vehicles'],
-    queryFn: async () => {
-      const res = await api.get('/vehicles');
-      return (res.data?.results ?? []) as Vehicle[];
-    }
+    queryFn: () => getVehicles()
   });
 
   const vehicles = vehiclesData || [];
@@ -60,8 +52,8 @@ export function DriversPage() {
   }, [vehicles]);
 
   const addMutation = useMutation({
-    mutationFn: (newDriverData: typeof form) => api.post('/drivers', newDriverData),
-    onSuccess: (_, variables) => {
+    mutationFn: (newDriverData: typeof form) => createDriver(newDriverData),
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       setIsAddOpen(false);
@@ -81,14 +73,20 @@ export function DriversPage() {
         assignedVehicleReg: vehicles[0]?.registrationNumber || '',
         assignedRoute: 'Highway Express Delivery Corridor'
       });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to register driver');
     }
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/drivers/${id}`),
+    mutationFn: (id: string) => deleteDriver(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
       toast.success('Driver removed from active roster');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to remove driver');
     }
   });
 

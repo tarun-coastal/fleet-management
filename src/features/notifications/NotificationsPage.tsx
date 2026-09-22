@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { getNotifications, markAllNotificationsRead } from '@/lib/supabaseApi';
 import type { AppNotification } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,14 +12,11 @@ export function NotificationsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['notifications'],
-    queryFn: async () => {
-      const res = await api.get('/notifications');
-      return res.data.results as AppNotification[];
-    }
+    queryFn: () => getNotifications()
   });
 
   const readAllMutation = useMutation({
-    mutationFn: () => api.put('/notifications/read-all'),
+    mutationFn: () => markAllNotificationsRead(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast.success('All notifications marked as read');

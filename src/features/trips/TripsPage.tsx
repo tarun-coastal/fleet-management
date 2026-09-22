@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api } from '@/lib/api';
+import { getTrips, startTrip, endTrip } from '@/lib/supabaseApi';
 import type { Trip } from '@/types';
 import { Activity, Plus, MapPin, Calendar, Clock, Truck, Eye } from 'lucide-react';
 import { toast } from 'sonner';
@@ -24,20 +24,28 @@ export function TripsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['trips'],
-    queryFn: async () => {
-      const res = await api.get('/trips');
-      return (res.data?.results ?? []) as Trip[];
-    }
+    queryFn: () => getTrips()
   });
 
   const logTripMutation = useMutation({
-    mutationFn: (trip: Partial<Trip>) => api.post('/trips/start', trip),
-    onSuccess: (res) => {
+    mutationFn: async (trip: Partial<Trip>) => {
+      const newTrip = await startTrip({
+        vehicleReg: trip.vehicleId || '',
+        driverName: trip.driverId || '',
+        lat: 18.5204,
+        lng: 73.8567,
+        notes: trip.notes
+      });
       // immediately mark completed
-      api.post(`/trips/${res.data.id}/end`, { distanceKm: form.distanceKm });
+      await endTrip(newTrip.id, { lat: 18.5204, lng: 73.8567, distanceKm: trip.distanceKm || 0 });
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trips'] });
       setIsLogOpen(false);
       toast.success('Commercial trip entry recorded');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to record trip');
     }
   });
 

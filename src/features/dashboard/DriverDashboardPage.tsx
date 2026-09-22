@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Truck, MapPin, Plus, AlertCircle, ShieldCheck, Gauge, Clock, Radio, ExternalLink, Navigation, Compass } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { api } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { pingTracking, startTrip, endTrip, getVehicles } from '@/lib/supabaseApi';
 
 const ACTIVE_TRIP_STORAGE_KEY = 'fleet_active_driver_trip';
 
@@ -24,9 +25,14 @@ interface ActiveTripState {
 export function DriverDashboardPage() {
   const user = useAuthStore(s => s.user);
 
-  const driverName = user?.name || 'Ramesh Kumar';
-  const driverVehicle = user?.assignedVehicleReg || 'MH 12 AB 1234';
-  const driverRoute = user?.assignedRoute || 'Mumbai JNPT Port to Pune Chakan industrial line';
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ['vehicles'],
+    queryFn: () => getVehicles()
+  });
+
+  const driverName = user?.name || 'Driver';
+  const driverVehicle = user?.assignedVehicleReg || vehicles[0]?.registrationNumber || 'No Vehicle Assigned';
+  const driverRoute = user?.assignedRoute || 'Assigned Transit Route';
 
   const [activeTrip, setActiveTrip] = useState<ActiveTripState | null>(() => {
     try {
@@ -82,7 +88,7 @@ export function DriverDashboardPage() {
         };
 
         try {
-          await api.post('/tracking/ping', {
+          await pingTracking({
             vehicleReg: activeTrip.vehicleReg,
             driverName: activeTrip.driverName,
             lat: nextLat,
@@ -101,7 +107,7 @@ export function DriverDashboardPage() {
       // Stationary: Send heartbeat every 8s with STRICT 0 km/h speed and NO coordinate change
       setCurrentSpeed(0);
       const stationaryHeartbeat = setInterval(() => {
-        api.post('/tracking/ping', {
+        pingTracking({
           vehicleReg: activeTrip.vehicleReg,
           driverName: activeTrip.driverName,
           lat: activeTrip.lat,
@@ -125,7 +131,7 @@ export function DriverDashboardPage() {
     if (speedTimeoutRef.current) clearTimeout(speedTimeoutRef.current);
 
     try {
-      await api.post('/tracking/ping', {
+      await pingTracking({
         vehicleReg: activeTrip.vehicleReg,
         driverName: activeTrip.driverName,
         lat: nextLat,
@@ -148,7 +154,7 @@ export function DriverDashboardPage() {
       // Settle speed back to 0 km/h once movement step is completed
       speedTimeoutRef.current = setTimeout(async () => {
         setCurrentSpeed(0);
-        await api.post('/tracking/ping', {
+        await pingTracking({
           vehicleReg: activeTrip.vehicleReg,
           driverName: activeTrip.driverName,
           lat: nextLat,
@@ -167,7 +173,7 @@ export function DriverDashboardPage() {
 
     const initializeTrip = async (lat: number, lng: number) => {
       try {
-        const res = await api.post('/trips/start', {
+        const resTrip = await startTrip({
           vehicleReg: driverVehicle,
           driverName,
           lat,
@@ -176,7 +182,7 @@ export function DriverDashboardPage() {
         });
 
         const newActive: ActiveTripState = {
-          tripId: res.data.id,
+          tripId: resTrip.id,
           vehicleReg: driverVehicle,
           driverName,
           assignedRoute: driverRoute,
@@ -211,7 +217,7 @@ export function DriverDashboardPage() {
     if (!activeTrip) return;
 
     try {
-      await api.post(`/trips/${activeTrip.tripId}/end`, {
+      await endTrip(activeTrip.tripId, {
         lat: activeTrip.lat,
         lng: activeTrip.lng,
         distanceKm: Math.max(activeTrip.distanceKm, 2.5)

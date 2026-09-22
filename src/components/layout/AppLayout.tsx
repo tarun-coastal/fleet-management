@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/lib/store';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { getNotifications } from '@/lib/supabaseApi';
 import { 
   LogOut, Home, Truck, Users, FileText, Map, Activity, 
   Bell, Settings, Wrench, Shield, UserCircle, ChevronRight 
@@ -15,10 +15,7 @@ export function AppLayout() {
 
   const { data: notifs } = useQuery({
     queryKey: ['notifications'],
-    queryFn: async () => {
-      const res = await api.get('/notifications');
-      return res.data.results;
-    },
+    queryFn: () => getNotifications(),
     refetchInterval: 10000
   });
 

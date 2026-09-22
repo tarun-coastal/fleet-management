@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { getMaintenance, createMaintenance } from '@/lib/supabaseApi';
 import type { MaintenanceRecord } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -24,19 +24,19 @@ export function MaintenancePage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['maintenance'],
-    queryFn: async () => {
-      const res = await api.get('/maintenance');
-      return res.data.results as MaintenanceRecord[];
-    }
+    queryFn: () => getMaintenance()
   });
 
   const addMutation = useMutation({
-    mutationFn: (rec: Partial<MaintenanceRecord>) => api.post('/maintenance', rec),
+    mutationFn: (rec: Partial<MaintenanceRecord>) => createMaintenance(rec),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance'] });
       setIsAddOpen(false);
       toast.success('Maintenance task scheduled');
       setForm({ vehicleId: 'MH 12 AB 1234', title: '', description: '', cost: 0, status: 'scheduled' });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to schedule maintenance');
     }
   });
 

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { api } from '@/lib/api';
+import { getLivePositions, pingTracking } from '@/lib/supabaseApi';
 import type { LocationPing } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Navigation, Gauge, RefreshCw, Clock, Play, MapPin, Truck, AlertCircle, Compass, Zap } from 'lucide-react';
@@ -152,10 +152,7 @@ export function TrackingPage() {
   // Poll live tracking every 3 seconds for continuous telemetry sync
   const { data, refetch, isFetching } = useQuery({
     queryKey: ['tracking-live'],
-    queryFn: async () => {
-      const res = await api.get('/tracking/live');
-      return (res.data?.results ?? []) as LocationPing[];
-    },
+    queryFn: () => getLivePositions(),
     refetchInterval: 3000,
   });
 
@@ -183,8 +180,8 @@ export function TrackingPage() {
     const newLat = target.lat + 0.003;
     const newLng = target.lng + 0.003;
 
-    api.post('/tracking/ping', {
-      vehicleReg: target.vehicleReg,
+    pingTracking({
+      vehicleReg: target.vehicleReg || '',
       driverName: target.driverName,
       lat: newLat,
       lng: newLng,
@@ -194,8 +191,8 @@ export function TrackingPage() {
       refetch();
       toast.success(`Position updated! Journey path extended for ${target.vehicleReg}`);
       setTimeout(() => {
-        api.post('/tracking/ping', {
-          vehicleReg: target.vehicleReg,
+        pingTracking({
+          vehicleReg: target.vehicleReg || '',
           driverName: target.driverName,
           lat: newLat,
           lng: newLng,

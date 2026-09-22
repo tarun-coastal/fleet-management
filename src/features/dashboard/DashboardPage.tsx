@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { getAnalyticsSummary, getTrips, getDocuments, getLivePositions } from '@/lib/supabaseApi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
@@ -8,34 +8,22 @@ import { Truck, Navigation, AlertTriangle, IndianRupee, ArrowUpRight, CheckCircl
 export function DashboardPage() {
   const { data: summary, isLoading } = useQuery({
     queryKey: ['analytics-summary'],
-    queryFn: async () => {
-      const res = await api.get('/analytics/summary');
-      return res.data;
-    }
+    queryFn: () => getAnalyticsSummary()
   });
 
   const { data: trips } = useQuery({
     queryKey: ['trips'],
-    queryFn: async () => {
-      const res = await api.get('/trips');
-      return res.data?.results ?? [];
-    }
+    queryFn: () => getTrips()
   });
 
   const { data: documents } = useQuery({
     queryKey: ['documents'],
-    queryFn: async () => {
-      const res = await api.get('/documents');
-      return res.data?.results ?? [];
-    }
+    queryFn: () => getDocuments()
   });
 
   const { data: trackingLive } = useQuery({
     queryKey: ['tracking-live'],
-    queryFn: async () => {
-      const res = await api.get('/tracking/live');
-      return res.data?.results ?? [];
-    },
+    queryFn: () => getLivePositions(),
     refetchInterval: 4000
   });
 

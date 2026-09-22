@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User } from '../types';
+import { logoutUser } from './supabaseApi';
 
 interface AuthState {
   token: string | null;
   user: User | null;
   setAuth: (token: string, user: User) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -15,7 +16,10 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       user: null,
       setAuth: (token, user) => set({ token, user }),
-      logout: () => set({ token: null, user: null }),
+      logout: async () => {
+        await logoutUser();
+        set({ token: null, user: null });
+      },
     }),
     {
       name: 'fleet-auth',
